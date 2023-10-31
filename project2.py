@@ -1,430 +1,292 @@
 import os
 import sys
 import math
-import struct
 
-# Correction with BMP, AVI, and ZIP calculations
-# Potentially need to include WinZIP
-
+# Need to add comments and edit the zip logic
 
 file_header = {
-    'MPG': '000001b',
-    'PDF': '25504446',
-    'BMP': '424d',
+    'MPG': '000001b3', 
+    'PDF': '25504446', 
+    'BMP': '424d', 
     'GIF1': '474946383761',
-    'GIF2': '474946383961',
-    'JPG': 'ffd8ff',
-    'DOCX': '504b030414000600',
+    'GIF2': '474946383961', 
+    'JPG': 'ffd8ff', 
+    'DOCX': '504b030414000600', 
     'AVI': '52494646',
     'PNG': '89504e470d0a1a0a',
-    'ZIP': '504b0304'
-    
-}
+    'ZIP': '504b0304' 
+    }
+
 
 file_footer = {
     'MPG1': '000001b7',
-    'MPG2': '000001b9',
-    'PDF1': '0a2525454f46',
-    'PDF2': '0a2525454f460a',
-    'PDF3': '0d0a2525454f460d0a',
-    'PDF4': '0d2525454f460d',
-    'GIF': '003b',
-    'JPG': 'ffd9',
-    'DOCX': '504b0506',
+    'MPG2': '000001b9', 
+    'PDF1': '0d2525454f460d000000', 
+    'PDF2': '0d0a2525454f460d0a000000',
+    'PDF3': '0a2525454f460a000000', 
+    'PDF4': '0a2525454f46000000', 
+    'GIF': '003b000000', 
+    'JPG': 'ffd9000000',
+    'DOCX': '504b0506', 
     'PNG': '49454e44ae426082',
     'ZIP': '504b'
-}
-
-def Find_loc(disk_hex):
-    loc = 0
-    for fh in file_header:
-        fh_bytes = file_header[fh]
-        loc = disk_hex.find(fh_bytes)
-        if loc%512 == 0:
-            print(f'{fh}: {loc}')
-
+    }
 
 def FileRecovery(disk_hex):
-
-    # Num of Files Found
+    
     total_found = 0
 
-    # Look for all headers
-    for header in file_header:
-
-        # Searching Location
-        search = 0
-
-        # Signature Location
-        loc = disk_hex.find(file_header[header])
-
+    for Header in file_header:
+        search = 0 
+        loc = disk_hex.find(file_header[Header])
         while loc != -1:
 
-            # MPG 
-            if header == 'MPG':
-
-                # Start of Sector
-                if loc%512 == 0:
-
-                    # Found File 
-                    total_found = total_found + 1
+            # MPG
+            if Header == 'MPG':
+		
+                if (loc % 512) == 0:
                     
-                    # File Footer Location
+                    total_found = total_found + 1
+
                     footer = disk_hex.find(file_footer['MPG1'], loc)
-                    if footer == -1:
-                        footer = disk_hex.find(file_footer['MPG2'], loc)
-                    
-                    # Get Entire File including length of footer
+                    if footer == -1: 
+                        footer = disk_hex.find(file_footer['MPG2'], loc) 
                     footer = footer + 7 
-
-                    # Generating File Name
-                    file_name = 'File' + str(total_found)+ '.mpg'
-
-                    # Extracting File 
-                    start_offset = int(loc / 2)
-                    end_offset = int(math.ceil(footer / 2))
-                    filesize = end_offset - start_offset
+                    #Creating the file
+                    File_name = 'File' + str(total_found) + '.mpg' 
                     
-                    # Printing Information
-                    print(file_name, end = ", ")
-                    print('Start Offset: ' + str(hex(start_offset)), end = ", ")
+                    start_offset = int(loc / 2) 
+                    end_offset = int(math.ceil(footer / 2))
+                    file_size = end_offset - start_offset
+                    
+                    #Printing the file name, start and end offsets
+                    print(File_name, end = ', ')
+                    print('Start Offset: ' + str(hex(start_offset)), end = ", ") 
                     print('End Offset: ' + str(hex(end_offset)))
-
-                    File_Extract(start_offset,filesize,file_name)
-
+                    
+                    #File extraction function
+                    File_Extract(start_offset,file_size, File_name)
                     search = footer
+
                 else:
-                    # If not start of sector move to the next search space
                     search = loc + 8
 
-            # PDF
-            if header == 'PDF':
-
-                # Start of Sector
-                if loc%512 == 0:
-
-                    # Found File 
+            elif Header == 'PDF':
+                if (loc % 512) == 0:
+                    print()
                     total_found = total_found + 1
-                    
-                    # File Footer Location and length of footer
+
                     footer = disk_hex.find(file_footer['PDF1'], loc)
-                    footer_len = 11
+                    end_offset = 13 
+
+                    if footer == -1: 
+                        
+                        footer = disk_hex.find(file_footer['PDF2'], loc) 
+                        end_offset = 17 
+                        
                     if footer == -1:
-                        footer = disk_hex.find(file_footer['PDF2'], loc)
-                        footer_len = 13
-                    if footer == -1:
-                        footer = disk_hex.find(file_footer['PDF3'], loc)
-                        footer_len = 17
-                    if footer == -1:
-                        footer = disk_hex.find(file_footer['PDF4'], loc)
-                        footer_len = 13
+                        footer = disk_hex.find(file_footer['PDF3'], loc) 
+                        end_offset = 13 
                     
-                    # Get Entire File including Footer
-                    footer = footer + footer_len
-
-                    # Generating File Name
-                    file_name = 'File' + str(total_found)+ '.pdf'
-
-                    # Extracting File 
+                    if footer == -1:
+                        footer = disk_hex.find(file_footer['PDF4'], loc) 
+                        end_offset = 11 
+                    
+                    end_offset = end_offset + footer
+                    File_name = 'File' + str(total_found) + '.pdf'
                     start_offset = int(loc / 2)
-                    end_offset = int(math.ceil(footer / 2))
-                    filesize = end_offset - start_offset
-                    
-                    # Printing Information
-                    print(file_name, end = ", ")
+                    end_offset = int(math.ceil(end_offset / 2))
+                    file_size = end_offset - start_offset
+                    print(File_name, end = ', ')
                     print('Start Offset: ' + str(hex(start_offset)), end = ", ")
                     print('End Offset: ' + str(hex(end_offset)))
 
-                    File_Extract(start_offset,filesize,file_name)
+                    File_Extract(start_offset,file_size, File_name)
 
                     search = footer
+
                 else:
-                    # If not start of sector move to the next search space
                     search = loc + 8
 
-            # BMP
-            if header == 'BMP':
+            elif Header == 'BMP':
+                if (loc % 512) == 0 and disk_hex[(loc + 12):(loc + 20)] == '00000000':
+                        total_found = total_found + 1
+                        File_name = 'File' + str(total_found) + '.bmp'
 
-                # Start of Sector
-                if loc%512 == 0:
+                        file_size = str(disk_hex[loc + 10: loc + 12])
+                        file_size = file_size + str(disk_hex[loc + 8: loc + 10])
+                        file_size = file_size + str(disk_hex[loc + 6: loc + 8])
+                        file_size = file_size + str(disk_hex[loc + 4: loc + 6])
 
-                    # Found File 
-                    total_found = total_found + 1
-                    
-                    # Calculate size of file from header and convert to decimal
-                    file_size = str(disk_hex[loc + 10: loc + 12])
-                    file_size = file_size + str(disk_hex[loc + 8: loc + 10])
-                    file_size = file_size + str(disk_hex[loc + 6: loc + 8])
-                    file_size = file_size + str(disk_hex[loc + 4: loc + 6])
+                        file_size = int(file_size, 16) 
+                        start_offset = int(loc / 2)
+                        end_offset = start_offset + file_size
+                        print(File_name, end = ', ')
+                        print('Start Offset: ' + str(hex(start_offset)), end = ", ")
+                        print('End Offset: ' + str(hex(end_offset)))
 
-                    file_size = int(file_size, 16)
-
-                    # Generating File Name
-                    file_name = 'File' + str(total_found)+ '.bmp'
-
-                    # Extracting File 
-                    start_offset = int(loc / 2)
-                    end_offset = start_offset + file_size
-                    
-                    # Printing Information
-                    print(file_name, end = ", ")
-                    print('Start Offset: ' + str(hex(start_offset)), end = ", ")
-                    print('End Offset: ' + str(hex(end_offset)))
-
-                    File_Extract(start_offset,file_size,file_name)
-
-                    search = end_offset
+                        File_Extract(start_offset,file_size, File_name)
+                        
+                        search = loc + file_size
                 else:
-                    # If not start of sector move to the next search space
                     search = loc + 4
 
-            # GIF87a
-            if header == 'GIF1':
-
-                # Start of Sector
-                if loc%512 == 0:
-
-                    # Found File 
+            elif Header == 'GIF1':
+                if (loc % 512) == 0:
+                    
                     total_found = total_found + 1
-                    
-                    # File Footer Location
+
                     footer = disk_hex.find(file_footer['GIF'], loc)
-                    
-                    # Get Entire File including Footer
-                    footer = footer + 3
-
-                    # Generating File Name
-                    file_name = 'File' + str(total_found)+ '.gif'
-
-                    # Extracting File 
+                    footer = footer + 3 
+                    File_name = 'File' + str(total_found) + '.gif'
                     start_offset = int(loc / 2)
                     end_offset = int(math.ceil(footer / 2))
-                    filesize = end_offset - start_offset
-                    
-                    # Printing Information
-                    print(file_name, end = ", ")
+                    file_size = end_offset - start_offset
+                    print(File_name, end = ', ')
+                    print('Start Offset: ' + str(hex(start_offset)), end = ", ")
+                    print('End Offset: ' + str(hex(end_offset)))
+                    File_Extract(start_offset,file_size, File_name)
+
+                else:
+                    search = loc + 12
+
+            elif Header == 'GIF2':
+                if (loc % 512) == 0:
+                    print()
+                    total_found = total_found + 1
+                    footer = disk_hex.find(file_footer['GIF'], loc)
+                    footer = footer + 3 
+                    File_name = 'File' + str(total_found) + '.gif'
+                    start_offset = int(loc / 2)
+                    end_offset = int(math.ceil(footer / 2))
+                    file_size = end_offset - start_offset
+                    print(File_name, end = ', ')
                     print('Start Offset: ' + str(hex(start_offset)), end = ", ")
                     print('End Offset: ' + str(hex(end_offset)))
 
-                    File_Extract(start_offset,filesize,file_name)
+                    File_Extract(start_offset,file_size, File_name)
 
                     search = footer
+
                 else:
-                    # If not start of sector move to the next search space
-                    search = loc + 12
-            
-            # GIF89a
-            if header == 'GIF2':
-
-                # Start of Sector
-                if loc%512 == 0:
-
-                    # Found File 
-                    total_found = total_found + 1
-                    
-                    # File Footer Location
-                    footer = disk_hex.find(file_footer['GIF'], loc)
-                    
-                    # Get Entire File including Footer
-                    footer = footer + 3
-
-                    # Generating File Name
-                    file_name = 'File' + str(total_found)+ '.gif'
-
-                    # Extracting File 
-                    start_offset = int(loc / 2)
-                    end_offset = int(math.ceil(footer / 2))
-                    filesize = end_offset - start_offset
-                    
-                    # Printing Information
-                    print(file_name, end = ", ")
-                    print('Start Offset: ' + str(hex(start_offset)), end = ", ")
-                    print('End Offset: ' + str(hex(end_offset)))
-
-                    File_Extract(start_offset,filesize,file_name)
-
-                    search = footer
-                else:
-                    # If not start of sector move to the next search space
                     search = loc + 12
 
-            # JPG
-            if header == 'JPG':
-
-                # Start of Sector
-                if loc%512 == 0:
-
-                    # Found File 
+            elif Header == 'JPG':
+                if (loc % 512) == 0:
+                    print()
                     total_found = total_found + 1
-                    
-                    # File Footer Location
+
+		   
                     footer = disk_hex.find(file_footer['JPG'], loc)
+                    footer = footer + 3 
                     
-                    # Get Entire File including Footer
-                    footer = footer + 3
-
-                    # Generating File Name
-                    file_name = 'File' + str(total_found)+ '.jpg'
-
-                    # Extracting File 
+                    File_name = 'File' + str(total_found) + '.jpg'
+                    
                     start_offset = int(loc / 2)
                     end_offset = int(math.ceil(footer / 2))
-                    filesize = end_offset - start_offset
-                    
-                    # Printing Information
-                    print(file_name, end = ", ")
+                    file_size = end_offset - start_offset
+                    print(File_name, end = ', ')
                     print('Start Offset: ' + str(hex(start_offset)), end = ", ")
                     print('End Offset: ' + str(hex(end_offset)))
 
-                    File_Extract(start_offset,filesize,file_name)
+                    File_Extract(start_offset,file_size, File_name)
 
                     search = footer
                 else:
-                    # If not start of sector move to the next search space
                     search = loc + 6
-            
-            # DOCX
-            if header == 'DOCX':
 
-                # Start of Sector
-                if loc%512 == 0:
-
-                    # Found File 
-                    total_found = total_found + 1
-                    
-                    # File Footer Location
+            elif Header == 'DOCX':
+                
+                if (loc % 512) == 0:
+                    total_found = total_found + 1        
                     footer = disk_hex.find(file_footer['DOCX'], loc)
-                    
-                    # Get Entire File including Footer
-                    footer = footer + 43
-
-                    # Generating File Name
-                    file_name = 'File' + str(total_found)+ '.docx'
-
-                    # Extracting File 
+                    footer = footer + 43 
+		            
+                    File_name = 'File' + str(total_found) + '.docx'
+                   
                     start_offset = int(loc / 2)
                     end_offset = int(math.ceil(footer / 2))
-                    filesize = end_offset - start_offset
-                    
-                    # Printing Information
-                    print(file_name, end = ", ")
+                    file_size = end_offset - start_offset
+                    print(File_name, end = ', ')
                     print('Start Offset: ' + str(hex(start_offset)), end = ", ")
                     print('End Offset: ' + str(hex(end_offset)))
 
-                    File_Extract(start_offset,filesize,file_name)
-
+                    File_Extract(start_offset,file_size, File_name)
+                    
                     search = footer
+
                 else:
-                    # If not start of sector move to the next search space
                     search = loc + 16
 
-            # AVI
-            if header == 'AVI':
+            elif Header == 'AVI':
+                if (loc % 512) == 0:
+                    if (disk_hex[(loc + 16):(loc + 32)] == '415649204c495354'):
+                        total_found = total_found + 1
 
-                # Start of Sector
-                if loc%512 == 0:
+                        File_name = 'File' + str(total_found) + '.avi'
 
-                    # Found File 
-                    total_found = total_found + 1
-                    
-                    # Collecting File Size and converting to decimal
-                    file_size = str(disk_hex[loc + 14: loc + 16])
-                    file_size = file_size + str(disk_hex[loc + 12: loc + 14])
-                    file_size = file_size + str(disk_hex[loc + 10: loc + 12])
-                    file_size = file_size + str(disk_hex[loc + 8: loc + 10])
+                        file_size = str(disk_hex[loc + 14: loc + 16])
+                        file_size = file_size + str(disk_hex[loc + 12: loc + 14])
+                        file_size = file_size + str(disk_hex[loc + 10: loc + 12])
+                        file_size = file_size + str(disk_hex[loc + 8: loc + 10])
+                        file_size = int(file_size, 16) + 8 
+                        start_offset = int(loc / 2)
+                        end_offset = start_offset + file_size
+                        print(File_name, end = ', ')
+                        print('Start Offset: ' + str(hex(start_offset)), end = ", ")
+                        print('End Offset: ' + str(hex(end_offset)))
 
-                    file_size = int(file_size, 16)
+                        File_Extract(start_offset,file_size, File_name)
 
-                    # Generating File Name
-                    file_name = 'File' + str(total_found)+ '.avi'
-
-                    # Extracting File 
-                    start_offset = int(loc / 2)
-                    end_offset = start_offset + file_size
-                    
-                    # Printing Information
-                    print(file_name, end = ", ")
-                    print('Start Offset: ' + str(hex(start_offset)), end = ", ")
-                    print('End Offset: ' + str(hex(end_offset)))
-
-                    File_Extract(start_offset,file_size,file_name)
-
-                    search = end_offset
+                        search = loc + file_size
                 else:
-                    # If not start of sector move to the next search space
                     search = loc + 32
 
-            # PNG
-            if header == 'PNG':
-
-                # Start of Sector
-                if loc%512 == 0:
-
-                    # Found File 
+            elif Header == 'PNG':
+                if (loc % 512) == 0:
                     total_found = total_found + 1
-                    
-                    # File Footer Location
                     footer = disk_hex.find(file_footer['PNG'], loc)
-                    
-                    # Get Entire File including Footer
-                    footer = footer + 15
-
-                    # Generating File Name
-                    file_name = 'File' + str(total_found)+ '.png'
-
-                    # Extracting File 
+                    footer = footer + 15  
+                    File_name = 'File' + str(total_found) + '.png'
                     start_offset = int(loc / 2)
                     end_offset = int(math.ceil(footer / 2))
-                    filesize = end_offset - start_offset
-                    
-                    # Printing Information
-                    print(file_name, end = ", ")
+                    file_size = end_offset - start_offset
+                    print(File_name, end = ', ')
                     print('Start Offset: ' + str(hex(start_offset)), end = ", ")
                     print('End Offset: ' + str(hex(end_offset)))
-
-                    File_Extract(start_offset,filesize,file_name)
+                    
+                    File_Extract(start_offset,file_size, File_name)
 
                     search = footer
                 else:
-                    # If not start of sector move to the next search space
                     search = loc + 16
-
-            # ZIP
-            if header == 'ZIP':
-
-                # Start of Sector
+            
+            elif Header == "ZIP":
                 if loc%512 == 0:
-
-                    # Found File 
                     total_found = total_found + 1
-                    
-                    # File Footer Location
-                    footer = disk_hex.find(file_footer['ZIP'], loc)
 
-                    # Get Entire File including Footer
-                    footer = footer + 23
+                    # Find the footer for the ZIP file
+                    footer = disk_hex.find(file_footer['ZIP'], loc+len(file_header['ZIP']))
+                    if footer == -1:
+                        search = loc + len(file_header['ZIP'])
+                        continue
+                    end_offset = footer + len(file_footer['ZIP'])
+                    File_name = 'File' + str(total_found) + '.zip'
 
-                    # Generating File Name
-                    file_name = 'File' + str(total_found)+ '.zip'
-
-                    # Extracting File 
-                    start_offset = int(loc / 2)
-                    end_offset = int(math.ceil(footer / 2))
-                    filesize = end_offset - start_offset
-                    
-                    # Printing Information
-                    print(file_name, end = ", ")
+                    start_offset = int(loc/2) + len(file_header['ZIP'])
+                    end_offset = int(math.ceil(end_offset/2))
+                    file_size = end_offset - start_offset
+                    print(File_name, end = ', ')
                     print('Start Offset: ' + str(hex(start_offset)), end = ", ")
                     print('End Offset: ' + str(hex(end_offset)))
-
-                    File_Extract(start_offset,filesize,file_name)
-
-                    search = footer
+                    
+                    File_Extract(start_offset,file_size, File_name)
+                    search = footer*2
                 else:
-                    # If not start of sector move to the next search space
-                    search = loc + 8
+                    search = loc + len(file_header['ZIP'])
 
-            loc = disk_hex.find(file_header[header], search)
+                    
+            loc = disk_hex.find(file_header[Header], search)
 
 def File_Extract(start_offset,count, file_name):
     extraction_command = 'dd if=' + str(sys.argv[1]) + ' of=' + str(file_name) + ' bs=1 skip=' + str(start_offset) + ' count='+ str(count)
@@ -434,13 +296,12 @@ def File_Extract(start_offset,count, file_name):
 
 def generateHash(inputFile):
     hash = 'sha256sum ' + inputFile
-    (os.system(hash))
+    os.system(hash)
 
 
 if __name__ == "__main__":
+    input_disk_path = sys.argv[1]
     with open(sys.argv[1], 'rb') as disk_image:
         disk_data = disk_image.read().hex()
     disk_image.close()
-
     FileRecovery(disk_data)
-    
